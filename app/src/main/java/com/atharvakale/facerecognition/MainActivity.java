@@ -54,6 +54,7 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
 
+import android.os.Handler;
 import android.os.ParcelFileDescriptor;
 import android.text.InputType;
 import android.util.Pair;
@@ -96,6 +97,7 @@ public class MainActivity extends AppCompatActivity {
     TextView reco_name,preview_info,textAbove_preview;
     Button recognize, camera_switch, actions, verification_screen;
     ImageButton add_face;
+    Bitmap face_dp;
     CameraSelector cameraSelector;
     boolean developerMode=false;
     float distance= 1.0f;
@@ -261,10 +263,7 @@ public class MainActivity extends AppCompatActivity {
                     reco_name.setVisibility(View.INVISIBLE);
                     face_preview.setVisibility(View.VISIBLE);
                     preview_info.setText("1.Bring Face in view of Camera.\n\n2.Your Face preview will appear here.\n\n3.Click Add button to save face.");
-
-
                 }
-
             }
         });
 
@@ -469,21 +468,16 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 //Toast.makeText(context, input.getText().toString(), Toast.LENGTH_SHORT).show();
-
                distance= Float.parseFloat(input.getText().toString());
-
-
                 SharedPreferences sharedPref = getSharedPreferences("Distance",Context.MODE_PRIVATE);
                 SharedPreferences.Editor editor = sharedPref.edit();
                 editor.putFloat("distance", distance);
                 editor.apply();
-
             }
         });
         builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-
                 dialog.cancel();
             }
         });
@@ -672,8 +666,6 @@ public class MainActivity extends AppCompatActivity {
                                 imageProxy.close(); //v.important to acquire next frame for analysis
                             }
                         });
-
-
             }
         });
 
@@ -687,7 +679,7 @@ public class MainActivity extends AppCompatActivity {
 
         // set Face to Preview
         face_preview.setImageBitmap(bitmap);
-
+        face_dp = bitmap;
         //Create ByteBuffer to store normalized image
 
         ByteBuffer imgData = ByteBuffer.allocateDirect(1 * inputSize * inputSize * 3 * 4);
@@ -743,45 +735,41 @@ public class MainActivity extends AppCompatActivity {
             if (nearest.get(0) != null) {
 
                 final String name = nearest.get(0).first; //get name and distance of closest matching face
-               // label = name;
+                // label = name;
                 distance_local = nearest.get(0).second;
-                if (developerMode)
-                {
-                    if(distance_local<distance) //If distance between Closest found face is more than 1.000 ,then output UNKNOWN face.
-                        reco_name.setText("Nearest: "+name +"\nDist: "+ String.format("%.3f",distance_local)+"\n2nd Nearest: "+nearest.get(1).first +"\nDist: "+ String.format("%.3f",nearest.get(1).second));
+                if (developerMode) {
+                    if (distance_local < distance) //If distance between Closest found face is more than 1.000 ,then output UNKNOWN face.
+                        reco_name.setText("Nearest: " + name + "\nDist: " + String.format("%.3f", distance_local) + "\n2nd Nearest: " + nearest.get(1).first + "\nDist: " + String.format("%.3f", nearest.get(1).second));
                     else
-                        reco_name.setText("Unknown "+"\nDist: "+String.format("%.3f",distance_local)+"\nNearest: "+name +"\nDist: "+ String.format("%.3f",distance_local)+"\n2nd Nearest: "+nearest.get(1).first +"\nDist: "+ String.format("%.3f",nearest.get(1).second));
+                        reco_name.setText("Unknown " + "\nDist: " + String.format("%.3f", distance_local) + "\nNearest: " + name + "\nDist: " + String.format("%.3f", distance_local) + "\n2nd Nearest: " + nearest.get(1).first + "\nDist: " + String.format("%.3f", nearest.get(1).second));
 
 //                    System.out.println("nearest: " + name + " - distance: " + distance_local);
-                }
-                else
-                {
-                    if(distance_local<distance) //If distance between Closest found face is more than 1.000 ,then output UNKNOWN face.
+                } else {
+                    //If distance between Closest found face is more than 1.000 ,then output UNKNOWN face.
+                    if (distance_local < distance) {
                         reco_name.setText(name);
-                    else
+                        // data passing verified user name to verification screen
+                        Handler handler=new Handler();
+                        Toast.makeText(this, "It may take time pls wait, we are verifying.....", Toast.LENGTH_SHORT).show();
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                Intent datapass = new Intent(MainActivity.this, Verification.class);
+                                datapass.putExtra("verified_pic", face_dp);
+                                datapass.putExtra("verified", name);
+                                finish();
+                                startActivity(datapass);
+                            }
+                        },2500);
+                        
+                    } else {
                         reco_name.setText("Unknown");
+                    }
 //                    System.out.println("nearest: " + name + " - distance: " + distance_local);
-                }
-
-
-
                 }
             }
-
-
-//            final int numDetectionsOutput = 1;
-//            final ArrayList<SimilarityClassifier.Recognition> recognitions = new ArrayList<>(numDetectionsOutput);
-//            SimilarityClassifier.Recognition rec = new SimilarityClassifier.Recognition(
-//                    id,
-//                    label,
-//                    distance);
-//
-//            recognitions.add( rec );
-
+        }
     }
-//    public void register(String name, SimilarityClassifier.Recognition rec) {
-//        registered.put(name, rec);
-//    }
 
     //Compare Faces by distance between face embeddings
     private List<Pair<String, Float>> findNearest(float[] emb) {
@@ -810,8 +798,8 @@ public class MainActivity extends AppCompatActivity {
         neighbour_list.add(prev_ret);
 
         return neighbour_list;
-
     }
+
     public Bitmap getResizedBitmap(Bitmap bm, int newWidth, int newHeight) {
         int width = bm.getWidth();
         int height = bm.getHeight();
