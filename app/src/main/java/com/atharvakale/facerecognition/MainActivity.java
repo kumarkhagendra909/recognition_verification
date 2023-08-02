@@ -94,7 +94,7 @@ public class MainActivity extends AppCompatActivity {
     ImageView face_preview;
     Interpreter tfLite;
     TextView reco_name,preview_info,textAbove_preview;
-    Button recognize,camera_switch, actions;
+    Button recognize, camera_switch, actions, verification_screen;
     ImageButton add_face;
     CameraSelector cameraSelector;
     boolean developerMode=false;
@@ -138,11 +138,21 @@ public class MainActivity extends AppCompatActivity {
         camera_switch=findViewById(R.id.button5);
         actions=findViewById(R.id.button2);
         textAbove_preview.setText("Recognized Face:");
+        verification_screen = findViewById(R.id.verificat_scr);
 //        preview_info.setText("        Recognized Face:");
         //Camera Permission
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.CAMERA}, MY_CAMERA_REQUEST_CODE);
         }
+
+        verification_screen.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent verif_screen = new Intent(MainActivity.this, Verification.class);
+                startActivity(verif_screen);
+            }
+        });
+
         //On-screen Action Button
         actions.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -586,7 +596,7 @@ public class MainActivity extends AppCompatActivity {
                 InputImage image = null;
 
 
-                @SuppressLint("UnsafeExperimentalUsageError")
+                @SuppressLint({"UnsafeExperimentalUsageError", "UnsafeOptInUsageError"})
                 // Camera Feed-->Analyzer-->ImageProxy-->mediaImage-->InputImage(needed for ML kit face detection)
 
                 Image mediaImage = imageProxy.getImage();
