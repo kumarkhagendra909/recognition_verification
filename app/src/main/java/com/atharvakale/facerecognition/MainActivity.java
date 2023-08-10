@@ -97,11 +97,11 @@ public class MainActivity extends AppCompatActivity {
     TextView reco_name,preview_info,textAbove_preview;
     Button recognize, camera_switch, actions, verification_screen;
     ImageButton add_face;
-    Bitmap face_dp;
+    Bitmap face_dp; //
     CameraSelector cameraSelector;
     boolean developerMode=false;
     float distance= 1.0f;
-    boolean start=true,flipX=false;
+    boolean start=true, flipX=false;
     Context context=MainActivity.this;
     int cam_face=CameraSelector.LENS_FACING_BACK; //Default Back Camera
 
@@ -122,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
     @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        super.onCreate(savedInstanceState); //*
         registered=readFromSP(); //Load saved faces from memory when app starts
         setContentView(R.layout.activity_main);
         face_preview =findViewById(R.id.imageView);
@@ -145,15 +145,18 @@ public class MainActivity extends AppCompatActivity {
         //Camera Permission
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.CAMERA}, MY_CAMERA_REQUEST_CODE);
+        }else{
+            Toast.makeText(this, "Already have permission, you can now use the app happily 😀", Toast.LENGTH_SHORT).show();
         }
 
-        verification_screen.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent verif_screen = new Intent(MainActivity.this, Verification.class);
-                startActivity(verif_screen);
-            }
-        });
+        verification_screen.setEnabled(false);
+//        verification_screen.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                Intent verif_screen = new Intent(MainActivity.this, Verification.class);
+//                startActivity(verif_screen);
+//            }
+//        });
 
         //On-screen Action Button
         actions.setOnClickListener(new View.OnClickListener() {
@@ -177,12 +180,14 @@ public class MainActivity extends AppCompatActivity {
                             case 1:
                                 updatenameListview();
                                 break;
+
                             case 2:
                                 insertToSP(registered,0); //mode: 0:save all, 1:clear all, 2:update all
                                 break;
                             case 3:
                                 registered.putAll(readFromSP());
                                 break;
+                            // insertToSP is used to share and retrieve the data within Hashmap and shared preference
                             case 4:
                                 clearnameList();
                                 break;
@@ -200,13 +205,15 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
-
+                // Cancel and Ok button of this Action button
+                // Ok
                 builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
 
                     }
                 });
+                // Cancel
                 builder.setNegativeButton("Cancel", null);
 
                 // create and show the alert dialog
@@ -235,7 +242,6 @@ public class MainActivity extends AppCompatActivity {
         add_face.setOnClickListener((new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
                 addFace();
             }
         }));
@@ -579,6 +585,7 @@ public class MainActivity extends AppCompatActivity {
                         .build();
 
         Executor executor = Executors.newSingleThreadExecutor();
+
         imageAnalysis.setAnalyzer(executor, new ImageAnalysis.Analyzer() {
             @Override
             public void analyze(@NonNull ImageProxy imageProxy) {
@@ -643,10 +650,13 @@ public class MainActivity extends AppCompatActivity {
                                                 }
                                                 else
                                                 {
-                                                    if(registered.isEmpty())
+                                                    if(registered.isEmpty()){
+                                                        verification_screen.setEnabled(false);
                                                         reco_name.setText("Add Face");
-                                                    else
+                                                    } else{
+                                                        verification_screen.setEnabled(false);
                                                         reco_name.setText("No Face Detected!");
+                                                    }
                                                 }
 
                                             }
@@ -733,42 +743,56 @@ public class MainActivity extends AppCompatActivity {
             final List<Pair<String, Float>> nearest = findNearest(embeedings[0]);//Find 2 closest matching face
 
             if (nearest.get(0) != null) {
-
                 final String name = nearest.get(0).first; //get name and distance of closest matching face
-                // label = name;
+
+
+                System.out.println("intent data pass to different screen says verified name");
                 distance_local = nearest.get(0).second;
                 if (developerMode) {
-                    if (distance_local < distance) //If distance between Closest found face is more than 1.000 ,then output UNKNOWN face.
-                        reco_name.setText("Nearest: " + name + "\nDist: " + String.format("%.3f", distance_local) + "\n2nd Nearest: " + nearest.get(1).first + "\nDist: " + String.format("%.3f", nearest.get(1).second));
-                    else
-                        reco_name.setText("Unknown " + "\nDist: " + String.format("%.3f", distance_local) + "\nNearest: " + name + "\nDist: " + String.format("%.3f", distance_local) + "\n2nd Nearest: " + nearest.get(1).first + "\nDist: " + String.format("%.3f", nearest.get(1).second));
 
+                    if (distance_local < distance) { //If distance between Closest found face is more than 1.000 ,then output UNKNOWN face.
+                        verification_screen.setEnabled(true);
+                        reco_name.setText("Nearest: " + name + "\nDist: " + String.format("%.3f", distance_local) + "\n2nd Nearest: " + nearest.get(1).first + "\nDist: " + String.format("%.3f", nearest.get(1).second));
+                    }else {
+                        reco_name.setText("Unknown " + "\nDist: " + String.format("%.3f", distance_local) + "\nNearest: " + name + "\nDist: " + String.format("%.3f", distance_local) + "\n2nd Nearest: " + nearest.get(1).first + "\nDist: " + String.format("%.3f", nearest.get(1).second));
+                        verification_screen.setEnabled(false);
+                    }
 //                    System.out.println("nearest: " + name + " - distance: " + distance_local);
                 } else {
                     //If distance between Closest found face is more than 1.000 ,then output UNKNOWN face.
                     if (distance_local < distance) {
+                        verification_screen.setEnabled(true);
+                        detail_to_next(face_dp, name);
                         reco_name.setText(name);
-                        // data passing verified user name to verification screen
-                        Handler handler=new Handler();
-                        Toast.makeText(this, "It may take time pls wait, we are verifying.....", Toast.LENGTH_SHORT).show();
-                        handler.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                Intent datapass = new Intent(MainActivity.this, Verification.class);
-                                datapass.putExtra("verified_pic", face_dp);
-                                datapass.putExtra("verified", name);
-                                finish();
-                                startActivity(datapass);
-                            }
-                        },2500);
-                        
                     } else {
                         reco_name.setText("Unknown");
+                        verification_screen.setEnabled(false);
+                        Toast.makeText(context, "Unknown user cannot verify you first register int the app", Toast.LENGTH_SHORT).show();
                     }
 //                    System.out.println("nearest: " + name + " - distance: " + distance_local);
                 }
             }
         }
+    }
+
+    private void detail_to_next(final Bitmap face_dp, String name) {
+        verification_screen.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // data passing verified user name to verification screen
+                Handler handler=new Handler();
+                Toast.makeText(MainActivity.this, "It may take time pls wait, we are verifying.....", Toast.LENGTH_SHORT).show();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        Intent datapass = new Intent(MainActivity.this, Verification.class);
+                        datapass.putExtra("verified_pic", face_dp);
+                        datapass.putExtra("verified", name);
+                        startActivity(datapass);
+                    }
+                },10);
+            }
+        });
     }
 
     //Compare Faces by distance between face embeddings
@@ -1002,8 +1026,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //Load Photo from phone storage
-    private void loadphoto()
-    {
+    private void loadphoto() {
         start=false;
         Intent intent = new Intent();
         intent.setType("image/*");

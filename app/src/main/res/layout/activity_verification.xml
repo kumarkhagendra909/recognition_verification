@@ -11,7 +11,7 @@
         android:id="@+id/verified"
         android:layout_width="wrap_content"
         android:layout_height="52dp"
-        android:text="Verified user"
+        android:text="@string/verified_user"
         android:textSize="20sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -31,5 +31,21 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.064"
-        tools:srcCompat="@tools:sample/avatars" />
+        android:src="@drawable/unknown_face"
+         />
+
+    <TextView
+        android:id="@+id/verified_screen_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/verification_screen_label"
+        android:textSize="30sp"
+        android:textStyle="bold|italic"
+        android:textColor="#CBEC0808"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.467"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.053" />
 </androidx.constraintlayout.widget.ConstraintLayout>
