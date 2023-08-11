@@ -13,4 +13,5 @@
     <string name="b"> </string>
     <string name="verified_user">Unknown user</string>
     <string name="verification_screen_label">Verification Screen</string>
+    <string name="capture">capture image and save in external storage</string>
 </resources>

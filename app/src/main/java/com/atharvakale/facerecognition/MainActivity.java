@@ -24,12 +24,17 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
@@ -71,6 +76,7 @@ import android.widget.Toast;
 import org.tensorflow.lite.Interpreter;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -115,8 +121,17 @@ public class MainActivity extends AppCompatActivity {
     private static int SELECT_PICTURE = 1;
     ProcessCameraProvider cameraProvider;
     private static final int MY_CAMERA_REQUEST_CODE = 100;
-
+    ImageButton captureandsave;
     String modelFile="mobile_face_net.tflite"; //model name
+    int cameraFacing;
+    private final ActivityResultLauncher<String> activityResultLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), new ActivityResultCallback<Boolean>() {
+        @Override
+        public void onActivityResult(Boolean result) {
+            if (result){
+                bindPreview(cameraProvider, cameraFacing);
+            }
+        }
+    });
 
     private HashMap<String, SimilarityClassifier.Recognition> registered = new HashMap<>(); //saved Faces
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -129,6 +144,7 @@ public class MainActivity extends AppCompatActivity {
         reco_name =findViewById(R.id.textView);
         preview_info =findViewById(R.id.textView2);
         textAbove_preview =findViewById(R.id.textAbovePreview);
+        captureandsave = findViewById(R.id.captureandsave);
         add_face=findViewById(R.id.imageButton);
         add_face.setVisibility(View.INVISIBLE);
 
@@ -148,15 +164,8 @@ public class MainActivity extends AppCompatActivity {
         }else{
             Toast.makeText(this, "Already have permission, you can now use the app happily 😀", Toast.LENGTH_SHORT).show();
         }
-
+// disabling the verification button until user was verified
         verification_screen.setEnabled(false);
-//        verification_screen.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                Intent verif_screen = new Intent(MainActivity.this, Verification.class);
-//                startActivity(verif_screen);
-//            }
-//        });
 
         //On-screen Action Button
         actions.setOnClickListener(new View.OnClickListener() {
@@ -229,10 +238,12 @@ public class MainActivity extends AppCompatActivity {
                 if (cam_face==CameraSelector.LENS_FACING_BACK) {
                     cam_face = CameraSelector.LENS_FACING_FRONT;
                     flipX=true;
+                    cameraFacing = cam_face;
                 }
                 else {
                     cam_face = CameraSelector.LENS_FACING_BACK;
                     flipX=false;
+                    cameraFacing = cam_face;//11
                 }
                 cameraProvider.unbindAll();
                 cameraBind();
@@ -250,8 +261,7 @@ public class MainActivity extends AppCompatActivity {
         recognize.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(recognize.getText().toString().equals("Recognize"))
-                {
+                if(recognize.getText().toString().equals("Recognize")) {
                  start=true;
                  textAbove_preview.setText("Recognized Face:");
                 recognize.setText("Add Face");
@@ -341,7 +351,7 @@ public class MainActivity extends AppCompatActivity {
     }
     private void addFace()
     {
-        {
+        //
 
             start=false;
             AlertDialog.Builder builder = new AlertDialog.Builder(context);
@@ -361,9 +371,10 @@ public class MainActivity extends AppCompatActivity {
 
                     //Create and Initialize new object with Face embeddings and Name.
                     SimilarityClassifier.Recognition result = new SimilarityClassifier.Recognition(
-                            "0", "", -1f);
+                            "0", "", -1f);// SimilarityClassifier will hold the result image
                     result.setExtra(embeedings);
 
+                    // input.getText().toString() ---> name of registered person,result ---> Single image
                     registered.put( input.getText().toString(),result);
                     start=true;
 
@@ -378,7 +389,7 @@ public class MainActivity extends AppCompatActivity {
             });
 
             builder.show();
-        }
+        //
     }
     private  void clearnameList()
     {
@@ -553,8 +564,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //Bind camera and preview view
-    private void cameraBind()
-    {
+    private void cameraBind() {
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
         previewView=findViewById(R.id.previewView);
@@ -562,22 +572,30 @@ public class MainActivity extends AppCompatActivity {
             try {
                 cameraProvider = cameraProviderFuture.get();
 
-                bindPreview(cameraProvider);
+                bindPreview(cameraProvider, cameraFacing);
             } catch (ExecutionException | InterruptedException e) {
                 // No errors need to be handled for this in Future.
                 // This should never be reached.
             }
         }, ContextCompat.getMainExecutor(this));
     }
-    void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
-        Preview preview = new Preview.Builder()
-                .build();
+    void bindPreview(@NonNull ProcessCameraProvider cameraProvider, int cameraFacing) {
+
+        try{
+            Preview preview = new Preview.Builder()
+                    .build();
 
         cameraSelector = new CameraSelector.Builder()
                 .requireLensFacing(cam_face)
                 .build();
-
         preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
+        // capture image Variable
+        ImageCapture imageCapture = new ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                .setTargetRotation(getWindowManager().getDefaultDisplay().getRotation()).build();
+
+
+
         ImageAnalysis imageAnalysis =
                 new ImageAnalysis.Builder()
                         .setTargetResolution(new Size(640, 480))
@@ -658,7 +676,6 @@ public class MainActivity extends AppCompatActivity {
                                                         reco_name.setText("No Face Detected!");
                                                     }
                                                 }
-
                                             }
                                         })
                                 .addOnFailureListener(
@@ -672,7 +689,6 @@ public class MainActivity extends AppCompatActivity {
                                 .addOnCompleteListener(new OnCompleteListener<List<Face>>() {
                             @Override
                             public void onComplete(@NonNull Task<List<Face>> task) {
-
                                 imageProxy.close(); //v.important to acquire next frame for analysis
                             }
                         });
@@ -682,9 +698,55 @@ public class MainActivity extends AppCompatActivity {
 
         cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, imageAnalysis, preview);
 
+        captureandsave.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
+//                            //
+                    if(ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
+                        activityResultLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                        activityResultLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE);
+                        takePicture(imageCapture);
+                    }//
+                } else {
+                    takePicture(imageCapture);
+                }
+            }
+        });
+        } catch(Exception e){
+            e.printStackTrace();
+            System.out.println("---x--Error--x---");
+        }
 
     }
+public void takePicture(ImageCapture imageCapture){
+    final File file = new File(getExternalFilesDir(null), System.currentTimeMillis() + ".jpg");
+    ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(file).build();
+    imageCapture.takePicture(outputFileOptions, Executors.newCachedThreadPool(), new ImageCapture.OnImageSavedCallback() {
+        @Override
+        public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    System.out.println(file.getPath());
+                    Toast.makeText(MainActivity.this, "Image Saved at: " +file.getPath(), Toast.LENGTH_SHORT).show();
+                }
+            });
+            bindPreview(cameraProvider, cameraFacing);
+        }
 
+        @Override
+        public void onError(@NonNull ImageCaptureException exception) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(MainActivity.this, "Failed to save: " + exception.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
+            bindPreview(cameraProvider, cameraFacing);
+        }
+    });
+}
     public void recognizeImage(final Bitmap bitmap) {
 
         // set Face to Preview
@@ -800,12 +862,10 @@ public class MainActivity extends AppCompatActivity {
         List<Pair<String, Float>> neighbour_list = new ArrayList<Pair<String, Float>>();
         Pair<String, Float> ret = null; //to get closest match
         Pair<String, Float> prev_ret = null; //to get second closest match
-        for (Map.Entry<String, SimilarityClassifier.Recognition> entry : registered.entrySet())
-        {
-
-            final String name = entry.getKey();
+        //registered.entrySet() operation performed with hashmap and Map.Entry is another type of data structure
+        for (Map.Entry<String, SimilarityClassifier.Recognition> entry : registered.entrySet()) {
+           final String name = entry.getKey();
            final float[] knownEmb = ((float[][]) entry.getValue().getExtra())[0];
-
             float distance = 0;
             for (int i = 0; i < emb.length; i++) {
                 float diff = emb[i] - knownEmb[i];
